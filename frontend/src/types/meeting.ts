@@ -10,6 +10,7 @@ export interface Meeting {
   summaryLink?: string; // URL to Granola/Notion summary
   isRecorded?: boolean; // True if a summary/recording was found
   status: 'pending' | 'processed' | 'unrecorded' | 'offline-pending-input'; // Workflow status
+  date: Date; // New: Date of the meeting (for grouping by day)
 }
 
 export interface ActionItem {
