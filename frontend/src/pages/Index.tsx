@@ -3,10 +3,13 @@
 import React from "react";
 import Header from "@/components/Header";
 import TodayDashboard from "@/components/TodayDashboard";
-import PastDashboards from "@/components/PastDashboards"; // Import PastDashboards
+import PastDashboards from "@/components/PastDashboards";
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { useDailyBrief } from "@/hooks/useDailyBrief"; // Import the new hook
 
 const Index = () => {
+  useDailyBrief(); // Call the hook here
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
