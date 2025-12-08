@@ -11,7 +11,9 @@ import { format } from "date-fns";
 import { useMeetings } from "@/context/MeetingContext";
 import { toast } from "sonner";
 import EditActionItemDialog from "./EditActionItemDialog";
-import SendEmailDialog from "./SendEmailDialog"; // Import the new dialog
+import SendEmailDialog from "./SendEmailDialog";
+import CreateCalendarInviteDialog from "./CreateCalendarInviteDialog"; // Import new dialog
+import AssignTaskDialog from "./AssignTaskDialog"; // Import new dialog
 
 interface ActionItemCardProps {
   actionItem: ActionItem;
@@ -21,15 +23,31 @@ const ActionItemCard = ({ actionItem }: ActionItemCardProps) => {
   const { addOrUpdateActionItem, rejectActionItem } = useMeetings();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSendEmailDialogOpen, setIsSendEmailDialogOpen] = useState(false);
+  const [isCreateCalendarInviteDialogOpen, setIsCreateCalendarInviteDialogOpen] = useState(false); // New state
+  const [isAssignTaskDialogOpen, setIsAssignTaskDialogOpen] = useState(false); // New state
 
 
   const handleActionExecute = (type: ActionItem['proposedActionType']) => {
-    if (type === "Send Email") {
-      setIsSendEmailDialogOpen(true);
-    } else {
-      // Simulate execution for other types for now
-      addOrUpdateActionItem({ ...actionItem, status: "Executed", executedAt: new Date() });
-      toast.success(`Action "${type}" for "${actionItem.description}" executed! (Mock)`);
+    switch (type) {
+      case "Send Email":
+        setIsSendEmailDialogOpen(true);
+        break;
+      case "Create Calendar Invite":
+        setIsCreateCalendarInviteDialogOpen(true); // Open new dialog
+        break;
+      case "Assign Task":
+        setIsAssignTaskDialogOpen(true); // Open new dialog
+        break;
+      case "Add Notes":
+        // Simulate execution for Add Notes
+        addOrUpdateActionItem({ ...actionItem, status: "Executed", executedAt: new Date() });
+        toast.success(`Action "Add Notes" for "${actionItem.description}" executed! (Mock)`);
+        break;
+      default:
+        // Fallback for any unhandled types
+        addOrUpdateActionItem({ ...actionItem, status: "Executed", executedAt: new Date() });
+        toast.success(`Action "${type}" for "${actionItem.description}" executed! (Mock)`);
+        break;
     }
   };
 
@@ -114,6 +132,22 @@ const ActionItemCard = ({ actionItem }: ActionItemCardProps) => {
           actionItem={actionItem}
           isOpen={isSendEmailDialogOpen}
           onClose={() => setIsSendEmailDialogOpen(false)}
+        />
+      )}
+
+      {isCreateCalendarInviteDialogOpen && (
+        <CreateCalendarInviteDialog
+          actionItem={actionItem}
+          isOpen={isCreateCalendarInviteDialogOpen}
+          onClose={() => setIsCreateCalendarInviteDialogOpen(false)}
+        />
+      )}
+
+      {isAssignTaskDialogOpen && (
+        <AssignTaskDialog
+          actionItem={actionItem}
+          isOpen={isAssignTaskDialogOpen}
+          onClose={() => setIsAssignTaskDialogOpen(false)}
         />
       )}
     </>
