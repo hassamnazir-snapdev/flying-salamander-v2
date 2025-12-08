@@ -6,8 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import SettingsPage from "./pages/SettingsPage"; // Import SettingsPage
 import { AuthProvider } from "./context/AuthContext";
-import { MeetingProvider } from "./context/MeetingContext"; // Import MeetingProvider
+import { MeetingProvider } from "./context/MeetingContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -19,7 +20,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <MeetingProvider> {/* Wrap protected routes with MeetingProvider */}
+          <MeetingProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route
@@ -27,6 +28,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings" // Add route for settings page
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
                   </ProtectedRoute>
                 }
               />

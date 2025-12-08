@@ -3,7 +3,8 @@
 import React from "react";
 import { Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext"; // Import useAuth
+import { useAuth } from "@/context/AuthContext";
+import { Link } from "react-router-dom"; // Import Link
 
 const Header = () => {
   const { isLoggedIn, logout } = useAuth();
@@ -17,8 +18,10 @@ const Header = () => {
             <LogOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Button>
         )}
-        <Button variant="ghost" size="icon" aria-label="Settings">
-          <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        <Button variant="ghost" size="icon" aria-label="Settings" asChild>
+          <Link to="/settings"> {/* Link to the settings page */}
+            <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          </Link>
         </Button>
       </div>
     </header>
