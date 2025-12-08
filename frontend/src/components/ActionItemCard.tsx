@@ -10,7 +10,8 @@ import { MoreVertical, Mail, Calendar, ListTodo, FileText, Edit, Trash2 } from "
 import { format } from "date-fns";
 import { useMeetings } from "@/context/MeetingContext";
 import { toast } from "sonner";
-import EditActionItemDialog from "./EditActionItemDialog"; // Import the new dialog
+import EditActionItemDialog from "./EditActionItemDialog";
+import SendEmailDialog from "./SendEmailDialog"; // Import the new dialog
 
 interface ActionItemCardProps {
   actionItem: ActionItem;
@@ -19,11 +20,17 @@ interface ActionItemCardProps {
 const ActionItemCard = ({ actionItem }: ActionItemCardProps) => {
   const { addOrUpdateActionItem, rejectActionItem } = useMeetings();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSendEmailDialogOpen, setIsSendEmailDialogOpen] = useState(false);
+
 
   const handleActionExecute = (type: ActionItem['proposedActionType']) => {
-    // Simulate execution
-    addOrUpdateActionItem({ ...actionItem, status: "Executed", executedAt: new Date() });
-    toast.success(`Action "${type}" for "${actionItem.description}" executed! (Mock)`);
+    if (type === "Send Email") {
+      setIsSendEmailDialogOpen(true);
+    } else {
+      // Simulate execution for other types for now
+      addOrUpdateActionItem({ ...actionItem, status: "Executed", executedAt: new Date() });
+      toast.success(`Action "${type}" for "${actionItem.description}" executed! (Mock)`);
+    }
   };
 
   const handleReject = () => {
@@ -99,6 +106,14 @@ const ActionItemCard = ({ actionItem }: ActionItemCardProps) => {
           actionItem={actionItem}
           isOpen={isEditDialogOpen}
           onClose={() => setIsEditDialogOpen(false)}
+        />
+      )}
+
+      {isSendEmailDialogOpen && (
+        <SendEmailDialog
+          actionItem={actionItem}
+          isOpen={isSendEmailDialogOpen}
+          onClose={() => setIsSendEmailDialogOpen(false)}
         />
       )}
     </>
