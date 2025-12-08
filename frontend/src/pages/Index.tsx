@@ -1,55 +1,26 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+"use client";
 
-import { Settings } from "lucide-react";
-import { useState, useEffect } from "react";
+import React from "react";
+import Header from "@/components/Header";
+import TodayDashboard from "@/components/TodayDashboard";
+import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
-  // Array of creative loading messages
-  const loadingMessages = [
-    "Gears are spinning and code elves are still typing away.",
-    "Your app's in the workshop—hammering and welding features.",
-    "Seeds planted, watering daily—your app's growing.",
-    "The orchestra's rehearsing—your app's score is being written.",
-    "We're sprinting through code and hurdling over bugs as we build.",
-    "Your app's training hard in the gym, getting stronger each day.",
-  ];
-
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Start fade out
-      setIsVisible(false);
-
-      // After fade out completes, change message and fade in
-      setTimeout(() => {
-        setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-        setIsVisible(true);
-      }, 500); // 500ms for fade out
-    }, 3000); // Change message every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [loadingMessages.length]);
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-      {/* Spinning Gear Icon */}
-      <div className="mb-8">
-        <Settings
-          className="w-16 h-16 text-gray-400 animate-spin"
-          style={{ animationDuration: "3s" }}
-        />
-      </div>
-
-      {/* Main Text with Fade Animation */}
-      <h1
-        className={`text-xl font-medium text-gray-300 text-center max-w-md transition-opacity duration-500 ${
-          isVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {loadingMessages[currentMessageIndex]}
-      </h1>
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      <Header />
+      <main className="flex flex-1">
+        {/* Today's Dashboard (Left side, takes full width on small screens) */}
+        <div className="flex-1">
+          <TodayDashboard />
+        </div>
+        {/* Future: Past Dashboards (Right side, hidden for MVP as per PRD) */}
+        {/* <div className="hidden lg:block w-1/3 border-l border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-950 p-4">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-50">Past Dashboards</h2>
+          <p className="text-gray-500 dark:text-gray-400">This section will show past dashboards (MVP excluded).</p>
+        </div> */}
+      </main>
+      <MadeWithDyad />
     </div>
   );
 };
