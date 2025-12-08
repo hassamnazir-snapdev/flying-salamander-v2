@@ -12,6 +12,7 @@ interface MeetingContextType {
   updateMeetingStatus: (meetingId: string, newStatus: Meeting['status']) => void;
   processMeetingSummary: (meetingId: string, summaryText: string) => void;
   rejectActionItem: (actionItemId: string) => void;
+  syncMeetings: () => void; // Add syncMeetings to context type
 }
 
 const MeetingContext = createContext<MeetingContextType | undefined>(undefined);
@@ -112,105 +113,100 @@ const simulateAIExtraction = (meetingId: string, summaryText: string, meetingDat
   return extractedActions;
 };
 
-const generateMockMeetings = (): Meeting[] => {
-  const mockMeetings: Meeting[] = [];
-  const today = startOfDay(new Date());
+// Generates mock meetings for a specific day
+const generateMeetingsForDay = (day: Date, isToday: boolean): Meeting[] => {
+  const meetings: Meeting[] = [];
+  const statusForToday = (hasSummary: boolean, isOnline: boolean) => {
+    if (isOnline) {
+      return hasSummary ? "pending" : "unrecorded";
+    }
+    return "offline-pending-input";
+  };
+  const statusForPast = "processed";
 
-  for (let i = 0; i < 7; i++) { // Generate meetings for today and past 6 days
-    const currentDay = subDays(today, i);
-
-    mockMeetings.push(
-      {
-        id: `m-${i}-1`,
-        googleEventId: `gcal-m-${i}-1`,
-        title: `Daily Standup - Day ${i}`,
-        startTime: setMinutes(setHours(currentDay, 9), 0),
-        endTime: setMinutes(setHours(currentDay, 9), 30),
-        isOnline: classifyMeeting(`Daily Standup - Day ${i}`, "Zoom Link: zoom.us/j/12345"),
-        location: "Zoom Link: zoom.us/j/12345",
-        participants: ["sarah@example.com", "john@example.com"],
-        summaryLink: `https://granola.com/summary/m-${i}-1`,
-        isRecorded: true,
-        status: i === 0 ? "pending" : "processed", // Today's standup pending, past ones processed
-        date: currentDay,
-      },
-      {
-        id: `m-${i}-2`,
-        googleEventId: `gcal-m-${i}-2`,
-        title: `Client Pitch - Project Alpha - Day ${i}`,
-        startTime: setMinutes(setHours(currentDay, 11), 0),
-        endTime: setMinutes(setHours(currentDay, 12), 0),
-        isOnline: classifyMeeting(`Client Pitch - Project Alpha - Day ${i}`, "Google Meet: meet.google.com/abc-defg-hij"),
-        location: "Google Meet: meet.google.com/abc-defg-hij",
-        participants: ["sarah@example.com", "client@example.com"],
-        summaryLink: undefined, // Simulating no summary found (will be "unrecorded")
-        isRecorded: false,
-        status: i === 0 ? "unrecorded" : "processed", // Today's unrecorded, past ones processed (manually)
-        date: currentDay,
-      },
-      {
-        id: `m-${i}-3`,
-        googleEventId: `gcal-m-${i}-3`,
-        title: `Team Brainstorm Session - Day ${i}`,
-        startTime: setMinutes(setHours(currentDay, 14), 0),
-        endTime: setMinutes(setHours(currentDay, 15), 30),
-        isOnline: classifyMeeting(`Team Brainstorm Session - Day ${i}`, "Conference Room 3B"),
-        location: "Conference Room 3B",
-        participants: ["sarah@example.com", "mark@example.com", "lisa@example.com"],
-        summaryLink: undefined,
-        isRecorded: false,
-        status: i === 0 ? "offline-pending-input" : "processed", // Today's offline-pending, past ones processed
-        date: currentDay,
-      },
-      {
-        id: `m-${i}-4`,
-        googleEventId: `gcal-m-${i}-4`,
-        title: `1:1 with John - Day ${i}`,
-        startTime: setMinutes(setHours(currentDay, 16), 0),
-        endTime: setMinutes(setHours(currentDay, 16), 30),
-        isOnline: classifyMeeting(`1:1 with John - Day ${i}`, "Zoom Link: zoom.us/j/67890"),
-        location: "Zoom Link: zoom.us/j/67890",
-        participants: ["sarah@example.com", "john@example.com"],
-        summaryLink: `https://notion.so/summary/m-${i}-4`, // Simulating a retrieved summary
-        isRecorded: true,
-        status: i === 0 ? "pending" : "processed", // Today's pending, past ones processed
-        date: currentDay,
-      },
-    );
-  }
-  return mockMeetings;
+  meetings.push(
+    {
+      id: uuidv4(),
+      googleEventId: `gcal-${day.toISOString()}-1`,
+      title: `Daily Standup`,
+      startTime: setMinutes(setHours(day, 9), 0),
+      endTime: setMinutes(setHours(day, 9), 30),
+      isOnline: classifyMeeting(`Daily Standup`, "Zoom Link: zoom.us/j/12345"),
+      location: "Zoom Link: zoom.us/j/12345",
+      participants: ["sarah@example.com", "john@example.com"],
+      summaryLink: `https://granola.com/summary/m-0-1`, // Always has a summary
+      isRecorded: true,
+      status: isToday ? statusForToday(true, true) : statusForPast,
+      date: day,
+    },
+    {
+      id: uuidv4(),
+      googleEventId: `gcal-${day.toISOString()}-2`,
+      title: `Client Pitch - Project Alpha`,
+      startTime: setMinutes(setHours(day, 11), 0),
+      endTime: setMinutes(setHours(day, 12), 0),
+      isOnline: classifyMeeting(`Client Pitch - Project Alpha`, "Google Meet: meet.google.com/abc-defg-hij"),
+      location: "Google Meet: meet.google.com/abc-defg-hij",
+      participants: ["sarah@example.com", "client@example.com"],
+      summaryLink: undefined, // Simulating no summary found
+      isRecorded: false,
+      status: isToday ? statusForToday(false, true) : statusForPast,
+      date: day,
+    },
+    {
+      id: uuidv4(),
+      googleEventId: `gcal-${day.toISOString()}-3`,
+      title: `Team Brainstorm Session`,
+      startTime: setMinutes(setHours(day, 14), 0),
+      endTime: setMinutes(setHours(day, 15), 30),
+      isOnline: classifyMeeting(`Team Brainstorm Session`, "Conference Room 3B"),
+      location: "Conference Room 3B",
+      participants: ["sarah@example.com", "mark@example.com", "lisa@example.com"],
+      summaryLink: undefined,
+      isRecorded: false,
+      status: isToday ? statusForToday(false, false) : statusForPast,
+      date: day,
+    },
+    {
+      id: uuidv4(),
+      googleEventId: `gcal-${day.toISOString()}-4`,
+      title: `1:1 with John`,
+      startTime: setMinutes(setHours(day, 16), 0),
+      endTime: setMinutes(setHours(day, 16), 30),
+      isOnline: classifyMeeting(`1:1 with John`, "Zoom Link: zoom.us/j/67890"),
+      location: "Zoom Link: zoom.us/j/67890",
+      participants: ["sarah@example.com", "john@example.com"],
+      summaryLink: `https://notion.so/summary/m-0-4`, // Always has a summary
+      isRecorded: true,
+      status: isToday ? statusForToday(true, true) : statusForPast,
+      date: day,
+    },
+  );
+  return meetings;
 };
 
-export const MeetingProvider = ({ children }: { children: ReactNode }) => {
+export const MeetingProvider = ({ children }: { ReactNode }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
 
-  useEffect(() => {
-    const fetchedMeetings = generateMockMeetings();
-    setMeetings(fetchedMeetings);
+  // Function to process a summary and add action items
+  const processMeetingSummary = (meetingId: string, summaryText: string) => {
+    const meeting = meetings.find(m => m.id === meetingId);
+    if (!meeting) return;
 
-    const initialActionItems: ActionItem[] = [];
-    const now = new Date();
+    const newActionItems = simulateAIExtraction(meetingId, summaryText, meeting.date);
+    setActionItems((prev) => [...prev, ...newActionItems]);
+    updateMeetingStatus(meetingId, 'processed');
+  };
 
-    // Generate initial action items for past meetings
-    fetchedMeetings.forEach(meeting => {
-      if (meeting.status === 'processed' && !isSameDay(meeting.date, startOfDay(now))) {
-        // Simulate some executed actions for past processed meetings
-        const summaryContent = meeting.summaryLink ? mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}` : `Manual input for ${meeting.title}: follow up with John, schedule next review.`;
-        const simulatedActions = simulateAIExtraction(meeting.id, summaryContent, meeting.date);
-        simulatedActions.forEach(action => {
-          initialActionItems.push({
-            ...action,
-            status: "Executed", // Past actions are mostly executed
-            executedAt: addDays(action.createdAt, 1),
-          });
-        });
-      }
-    });
+  // Function to update meeting status
+  const updateMeetingStatus = (meetingId: string, newStatus: Meeting['status']) => {
+    setMeetings((prev) =>
+      prev.map((m) => (m.id === meetingId ? { ...m, status: newStatus } : m)),
+    );
+  };
 
-    setActionItems(initialActionItems);
-  }, []);
-
+  // Function to add or update an action item
   const addOrUpdateActionItem = (actionItem: ActionItem) => {
     setActionItems((prev) => {
       const existingIndex = prev.findIndex((item) => item.id === actionItem.id);
@@ -223,24 +219,64 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const updateMeetingStatus = (meetingId: string, newStatus: Meeting['status']) => {
-    setMeetings((prev) =>
-      prev.map((m) => (m.id === meetingId ? { ...m, status: newStatus } : m)),
-    );
-  };
-
-  const processMeetingSummary = (meetingId: string, summaryText: string) => {
-    const meeting = meetings.find(m => m.id === meetingId);
-    if (!meeting) return;
-
-    const newActionItems = simulateAIExtraction(meetingId, summaryText, meeting.date);
-    setActionItems((prev) => [...prev, ...newActionItems]);
-    updateMeetingStatus(meetingId, 'processed');
-  };
-
+  // Function to reject an action item
   const rejectActionItem = (actionItemId: string) => {
     setActionItems((prev) => prev.filter(item => item.id !== actionItemId));
   };
+
+  // Simulate daily sync
+  const syncMeetings = () => {
+    const today = startOfDay(new Date());
+    const todayMeetings = generateMeetingsForDay(today, true);
+
+    // Filter out existing today's meetings and their action items
+    setMeetings(prevMeetings => prevMeetings.filter(m => !isSameDay(m.date, today)));
+    setActionItems(prevActionItems => prevActionItems.filter(ai => {
+      const relatedMeeting = meetings.find(m => m.id === ai.meetingId);
+      return !relatedMeeting || !isSameDay(relatedMeeting.date, today);
+    }));
+
+    setMeetings(prevMeetings => [...prevMeetings, ...todayMeetings]);
+
+    // Automatically process summaries for meetings that have them
+    todayMeetings.forEach(meeting => {
+      if (meeting.status === 'pending' && meeting.summaryLink) {
+        const summaryContent = mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}.`;
+        processMeetingSummary(meeting.id, summaryContent);
+      }
+    });
+  };
+
+  useEffect(() => {
+    const today = startOfDay(new Date());
+    const pastMeetings: Meeting[] = [];
+    const initialActionItems: ActionItem[] = [];
+
+    // Generate past 6 days of meetings
+    for (let i = 1; i <= 6; i++) {
+      const day = subDays(today, i);
+      const dayMeetings = generateMeetingsForDay(day, false);
+      pastMeetings.push(...dayMeetings);
+
+      // Simulate executed actions for past processed meetings
+      dayMeetings.forEach(meeting => {
+        if (meeting.status === 'processed') {
+          const summaryContent = meeting.summaryLink ? mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}` : `Manual input for ${meeting.title}: follow up with John, schedule next review.`;
+          const simulatedActions = simulateAIExtraction(meeting.id, summaryContent, meeting.date);
+          simulatedActions.forEach(action => {
+            initialActionItems.push({
+              ...action,
+              status: "Executed", // Past actions are mostly executed
+              executedAt: addDays(action.createdAt, 1),
+            });
+          });
+        }
+      });
+    }
+
+    setMeetings(pastMeetings);
+    setActionItems(initialActionItems);
+  }, []);
 
   return (
     <MeetingContext.Provider
@@ -251,6 +287,7 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
         updateMeetingStatus,
         processMeetingSummary,
         rejectActionItem,
+        syncMeetings,
       }}
     >
       {children}
