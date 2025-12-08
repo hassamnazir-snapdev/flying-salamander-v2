@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Meeting, ActionItem } from "@/types/meeting";
-import { startOfDay, setHours, setMinutes, subDays, addDays, isSameDay } from "date-fns";
+import { startOfDay, setHours, setMinutes, subDays, addDays, isSameDay, parseISO } from "date-fns";
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
 interface MeetingContextType {
@@ -25,57 +25,87 @@ const classifyMeeting = (title: string, location?: string): boolean => {
   return onlineKeywords.some(keyword => lowerCaseTitle.includes(keyword) || lowerCaseLocation.includes(keyword));
 };
 
+// Mock summary content map for more dynamic retrieval
+const mockSummaryContentMap: { [key: string]: string } = {
+  "https://granola.com/summary/m-0-1": "Summary for Daily Standup: Discussed project milestones. Action: John to send report by tomorrow. Next Step: Schedule next review meeting for next week. Also, assign task to Mark for Q3 planning. Add notes on strategy.",
+  "https://granola.com/summary/m-1-1": "Summary for Daily Standup: Reviewed sprint progress. Action: Sarah to update Jira by EOD. Next Step: Follow up with Lisa on design assets.",
+  "https://granola.com/summary/m-2-1": "Summary for Daily Standup: Discussed blockers. Action: Mark to investigate API issue. Due: 2024-12-15.",
+  "https://notion.so/summary/m-0-4": "Summary for 1:1 with John: Discussed career growth. Action: Sarah to provide feedback on John's performance review draft. Due: Friday. Also, John to research new tools.",
+  "https://notion.so/summary/m-1-4": "Summary for 1:1 with John: Reviewed Q1 goals. Action: John to prepare Q2 objectives. Due: 2024-12-20.",
+  "https://notion.so/summary/m-2-4": "Summary for 1:1 with John: Discussed team dynamics. Action: Sarah to schedule team building event. Due: next month.",
+};
+
 // Helper to simulate AI extraction of action items
 const simulateAIExtraction = (meetingId: string, summaryText: string, meetingDate: Date): ActionItem[] => {
   const extractedActions: ActionItem[] = [];
   const now = new Date();
 
-  // Simple keyword-based extraction for demonstration
-  if (summaryText.includes("follow up with John")) {
+  // Regex patterns for extraction
+  const actionRegex = /(?:Action|Next Step):\s*(.*?)(?:\.\s*Due:\s*(\d{4}-\d{2}-\d{2}|\w+\s+\d{1,2})|\.\s*by\s*(\w+)|$)/gi;
+  const ownerRegex = /(?:to|assigned to)\s*(\w+)/i;
+  const dueDateRegex = /(?:by|due):\s*(\d{4}-\d{2}-\d{2}|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\s+\w+|next\s+week|eod)/i;
+
+  let match;
+  while ((match = actionRegex.exec(summaryText)) !== null) {
+    const description = match[1].trim();
+    let owner: string | undefined;
+    let dueDate: Date | undefined;
+
+    // Try to find owner within the description
+    const ownerMatch = description.match(ownerRegex);
+    if (ownerMatch && ownerMatch[1]) {
+      owner = ownerMatch[1];
+    }
+
+    // Try to find due date within the description or from the main regex match
+    const dateString = match[2] || match[3] || description.match(dueDateRegex)?.[1];
+    if (dateString) {
+      const lowerDateString = dateString.toLowerCase();
+      if (lowerDateString === "tomorrow") {
+        dueDate = addDays(startOfDay(meetingDate), 1);
+      } else if (lowerDateString === "today") {
+        dueDate = startOfDay(meetingDate);
+      } else if (lowerDateString === "eod") {
+        dueDate = setHours(setMinutes(startOfDay(meetingDate), 0), 17); // End of day 5 PM
+      } else if (lowerDateString.includes("next week")) {
+        dueDate = addDays(startOfDay(meetingDate), 7);
+      } else if (lowerDateString.includes("next month")) {
+        dueDate = addDays(startOfDay(meetingDate), 30);
+      } else if (/\d{4}-\d{2}-\d{2}/.test(lowerDateString)) {
+        dueDate = parseISO(lowerDateString);
+      } else {
+        // Simple parsing for day names (e.g., "Friday")
+        const dayMap: { [key: string]: number } = {
+          "sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4, "friday": 5, "saturday": 6
+        };
+        const currentDay = meetingDate.getDay();
+        const targetDay = dayMap[lowerDateString];
+        if (targetDay !== undefined) {
+          let daysToAdd = targetDay - currentDay;
+          if (daysToAdd <= 0) daysToAdd += 7; // If target day is today or in the past, assume next week
+          dueDate = addDays(startOfDay(meetingDate), daysToAdd);
+        }
+      }
+    }
+
+    let proposedActionType: ActionItem['proposedActionType'] = "Add Notes";
+    if (description.toLowerCase().includes("send email") || description.toLowerCase().includes("email report")) {
+      proposedActionType = "Send Email";
+    } else if (description.toLowerCase().includes("schedule") || description.toLowerCase().includes("calendar")) {
+      proposedActionType = "Create Calendar Invite";
+    } else if (description.toLowerCase().includes("assign task") || description.toLowerCase().includes("update jira")) {
+      proposedActionType = "Assign Task";
+    }
+
     extractedActions.push({
       id: uuidv4(),
       meetingId,
-      description: "Follow up with John regarding project status.",
-      proposedActionType: "Send Email",
+      description,
+      proposedActionType,
       status: "Pending",
-      owner: "Sarah",
+      owner: owner || "Sarah", // Default owner if not found
       createdAt: now,
-      dueDate: addDays(meetingDate, 1), // Due day after meeting
-    });
-  }
-  if (summaryText.includes("schedule next review")) {
-    extractedActions.push({
-      id: uuidv4(),
-      meetingId,
-      description: "Schedule next product review meeting.",
-      proposedActionType: "Create Calendar Invite",
-      status: "Pending",
-      owner: "Sarah",
-      dueDate: setHours(setMinutes(startOfDay(addDays(meetingDate, 2)), 0), 10), // 2 days after at 10 AM
-      createdAt: now,
-    });
-  }
-  if (summaryText.includes("assign task to Mark")) {
-    extractedActions.push({
-      id: uuidv4(),
-      meetingId,
-      description: "Assign task to Mark for Q3 planning.",
-      proposedActionType: "Assign Task",
-      status: "Pending",
-      owner: "Mark",
-      createdAt: now,
-      dueDate: addDays(meetingDate, 3), // Due 3 days after meeting
-    });
-  }
-  if (summaryText.includes("notes on strategy")) {
-    extractedActions.push({
-      id: uuidv4(),
-      meetingId,
-      description: "Add notes on Q3 strategy discussion.",
-      proposedActionType: "Add Notes",
-      status: "Pending",
-      owner: "Sarah",
-      createdAt: now,
+      dueDate: dueDate || addDays(startOfDay(meetingDate), 3), // Default due date if not found
     });
   }
 
@@ -101,7 +131,7 @@ const generateMockMeetings = (): Meeting[] => {
         participants: ["sarah@example.com", "john@example.com"],
         summaryLink: `https://granola.com/summary/m-${i}-1`,
         isRecorded: true,
-        status: i === 0 ? "processed" : "processed", // Today's standup processed, past ones too
+        status: i === 0 ? "pending" : "processed", // Today's standup pending, past ones processed
         date: currentDay,
       },
       {
@@ -166,7 +196,8 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
     fetchedMeetings.forEach(meeting => {
       if (meeting.status === 'processed' && !isSameDay(meeting.date, startOfDay(now))) {
         // Simulate some executed actions for past processed meetings
-        const simulatedActions = simulateAIExtraction(meeting.id, `Summary for ${meeting.title}: follow up with John, schedule next review.`, meeting.date);
+        const summaryContent = meeting.summaryLink ? mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}` : `Manual input for ${meeting.title}: follow up with John, schedule next review.`;
+        const simulatedActions = simulateAIExtraction(meeting.id, summaryContent, meeting.date);
         simulatedActions.forEach(action => {
           initialActionItems.push({
             ...action,
@@ -174,28 +205,6 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
             executedAt: addDays(action.createdAt, 1),
           });
         });
-      } else if (meeting.id === "m-0-1") { // Specific action for today's processed meeting
-        initialActionItems.push(
-          {
-            id: uuidv4(),
-            meetingId: "m-0-1",
-            description: "Review Q2 performance report.",
-            proposedActionType: "Add Notes",
-            status: "Confirmed",
-            owner: "Sarah",
-            createdAt: now,
-            executedAt: now,
-          },
-          {
-            id: uuidv4(),
-            meetingId: "m-0-1",
-            description: "Send follow-up email to marketing team.",
-            proposedActionType: "Send Email",
-            status: "Pending", // Still pending execution
-            owner: "Sarah",
-            createdAt: now,
-          },
-        );
       }
     });
 

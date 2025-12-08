@@ -17,16 +17,26 @@ interface MeetingCardProps {
   relatedActionItems: ActionItem[];
 }
 
+// Mock summary content map (should ideally be in context or fetched)
+const mockSummaryContentMap: { [key: string]: string } = {
+  "https://granola.com/summary/m-0-1": "Summary for Daily Standup: Discussed project milestones. Action: John to send report by tomorrow. Next Step: Schedule next review meeting for next week. Also, assign task to Mark for Q3 planning. Add notes on strategy.",
+  "https://granola.com/summary/m-1-1": "Summary for Daily Standup: Reviewed sprint progress. Action: Sarah to update Jira by EOD. Next Step: Follow up with Lisa on design assets.",
+  "https://granola.com/summary/m-2-1": "Summary for Daily Standup: Discussed blockers. Action: Mark to investigate API issue. Due: 2024-12-15.",
+  "https://notion.so/summary/m-0-4": "Summary for 1:1 with John: Discussed career growth. Action: Sarah to provide feedback on John's performance review draft. Due: Friday. Also, John to research new tools.",
+  "https://notion.so/summary/m-1-4": "Summary for 1:1 with John: Reviewed Q1 goals. Action: John to prepare Q2 objectives. Due: 2024-12-20.",
+  "https://notion.so/summary/m-2-4": "Summary for 1:1 with John: Discussed team dynamics. Action: Sarah to schedule team building event. Due: next month.",
+};
+
+
 const MeetingCard = ({ meeting, relatedActionItems }: MeetingCardProps) => {
   const { updateMeetingStatus, processMeetingSummary } = useMeetings();
   const [manualInput, setManualInput] = useState<string>("");
 
   const handleProcessSummary = () => {
     if (meeting.summaryLink) {
-      // In a real app, we'd fetch the summary content from the link
-      // For now, simulate with a generic summary text
-      const mockSummaryContent = `Summary for ${meeting.title}: Discussed project milestones, follow up with John, schedule next review, assign task to Mark, and add notes on strategy.`;
-      processMeetingSummary(meeting.id, mockSummaryContent);
+      // Simulate fetching the summary content from the link
+      const summaryContent = mockSummaryContentMap[meeting.summaryLink] || `No detailed summary found for ${meeting.title}.`;
+      processMeetingSummary(meeting.id, summaryContent);
       toast.success(`Summary for "${meeting.title}" processed!`);
     }
   };
