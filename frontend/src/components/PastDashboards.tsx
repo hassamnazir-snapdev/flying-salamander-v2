@@ -6,7 +6,9 @@ import { useMeetings } from "@/context/MeetingContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Eye } from "lucide-react"; // Import Eye icon
+import { Button } from "@/components/ui/button"; // Import Button component
+import { toast } from "sonner"; // Import toast for mock navigation
 
 const PastDashboards = () => {
   const { meetings, actionItems } = useMeetings();
@@ -42,6 +44,16 @@ const PastDashboards = () => {
       });
     }
   }
+
+  const handleViewDetails = (date: Date) => {
+    // In a full application, this would navigate to a detailed dashboard page for the selected date.
+    // For now, we'll show a toast notification.
+    toast.info(`Viewing details for ${format(date, "EEEE, MMMM d, yyyy")}`, {
+      description: "This would navigate to a dedicated page for this day's activities.",
+      duration: 3000,
+    });
+    console.log("View details for:", date);
+  };
 
   return (
     <div className="p-4">
@@ -86,7 +98,14 @@ const PastDashboards = () => {
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   Pending: {dayData.actionsPending}
                 </p>
-                {/* In a full implementation, a "View Full Day" button could link to a detailed daily dashboard page */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => handleViewDetails(dayData.date)}
+                >
+                  <Eye className="mr-2 h-4 w-4" /> View Details
+                </Button>
               </AccordionContent>
             </AccordionItem>
           ))}
