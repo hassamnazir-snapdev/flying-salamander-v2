@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 const SettingsPage = () => {
-  const { integrationStatus, toggleIntegration } = useAuth();
+  const { integrationStatus, toggleIntegration, userEmail, deleteAccount } = useAuth();
 
   const integrations = [
     { key: "googleCalendar", name: "Google Calendar" },
@@ -58,17 +58,17 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* Future: User Profile settings */}
         <Card>
           <CardHeader>
             <CardTitle>User Profile</CardTitle>
             <CardDescription>View and manage your profile information.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Profile management features will be added here.
-            </p>
-            <Button variant="destructive" className="mt-4">
+            <div className="mb-4">
+              <Label className="text-base">Email</Label>
+              <p className="text-gray-700 dark:text-gray-300">{userEmail || "Not logged in"}</p>
+            </div>
+            <Button variant="destructive" className="mt-4" onClick={deleteAccount}>
               Delete Account (Mock)
             </Button>
           </CardContent>

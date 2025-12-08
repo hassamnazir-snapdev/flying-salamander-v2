@@ -14,8 +14,10 @@ interface AuthContextType {
   isLoggedIn: boolean;
   login: () => void;
   logout: () => void;
+  deleteAccount: () => void; // Add deleteAccount to context type
   integrationStatus: IntegrationStatus;
   toggleIntegration: (integration: keyof IntegrationStatus) => void;
+  userEmail: string; // Add userEmail to context type
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +46,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       notion: false,
     };
   });
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userEmail") || "sarah@example.com"; // Mock email
+    }
+    return "sarah@example.com";
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,8 +66,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [integrationStatus]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userEmail", userEmail);
+    }
+  }, [userEmail]);
+
   const login = () => {
     setIsLoggedIn(true);
+    setUserEmail("sarah@example.com"); // Set mock email on login
     navigate("/"); // Redirect to home after login
   };
 
@@ -72,7 +87,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       granola: false,
       notion: false,
     });
+    // Do not clear userEmail on logout, only on account deletion
     navigate("/login"); // Redirect to login after logout
+  };
+
+  const deleteAccount = () => {
+    // Clear all relevant local storage data
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("integrationStatus");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("lastDailyBriefDate"); // Clear daily brief date as well
+
+    setIsLoggedIn(false);
+    setIntegrationStatus({
+      googleCalendar: false,
+      gmail: false,
+      granola: false,
+      notion: false,
+    });
+    setUserEmail(""); // Clear user email
+    navigate("/login"); // Redirect to login after account deletion
   };
 
   const toggleIntegration = (integration: keyof IntegrationStatus) => {
@@ -83,7 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, integrationStatus, toggleIntegration }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, deleteAccount, integrationStatus, toggleIntegration, userEmail }}>
       {children}
     </AuthContext.Provider>
   );
