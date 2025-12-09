@@ -1,11 +1,17 @@
 "use client";
 
 import React from "react";
-import { Settings, LogOut, RefreshCw } from "lucide-react"; // Import RefreshCw icon
+import { Settings, LogOut, RefreshCw, Calendar, Database } from "lucide-react"; // Import icons
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
 import { useMeetings } from "@/context/MeetingContext"; // Import useMeetings
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const { isLoggedIn, logout } = useAuth();
@@ -17,9 +23,24 @@ const Header = () => {
       <div className="flex items-center gap-2">
         {isLoggedIn && (
           <>
-            <Button variant="ghost" size="icon" aria-label="Sync Meetings" onClick={syncMeetings}>
-              <RefreshCw className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Sync Options">
+                  <RefreshCw className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => syncMeetings("mock")}>
+                  <Database className="mr-2 h-4 w-4" />
+                  Load Mock Data
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => syncMeetings("google")}>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Sync Google Calendar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="ghost" size="icon" aria-label="Logout" onClick={logout}>
               <LogOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </Button>

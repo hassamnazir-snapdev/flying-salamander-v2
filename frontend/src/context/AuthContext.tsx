@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../lib/api";
 
 interface IntegrationStatus {
   googleCalendar: boolean;
@@ -12,7 +13,8 @@ interface IntegrationStatus {
 
 interface AuthContextType {
   isLoggedIn: boolean;
-  login: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  googleLogin: (code: string) => Promise<void>;
   logout: () => void;
   deleteAccount: () => void; // Add deleteAccount to context type
   integrationStatus: IntegrationStatus;
@@ -72,10 +74,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [userEmail]);
 
-  const login = () => {
-    setIsLoggedIn(true);
-    setUserEmail("sarah@example.com"); // Set mock email on login
-    navigate("/"); // Redirect to home after login
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await api.post("/auth/login", { email, password });
+      const { access_token } = response.data;
+      
+      localStorage.setItem("token", access_token);
+      setIsLoggedIn(true);
+      setUserEmail(email);
+      navigate("/"); // Redirect to home after login
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    }
+  };
+
+  const googleLogin = async (code: string) => {
+    try {
+      const response = await api.post("/auth/google", { code });
+      const { access_token } = response.data;
+      
+      localStorage.setItem("token", access_token);
+      setIsLoggedIn(true);
+      // We'll extract email from token or another "me" endpoint later if needed
+      // For now, we can set a placeholder or decode the JWT if we had the lib
+      setUserEmail("Google User");
+      navigate("/");
+    } catch (error) {
+      console.error("Google Login failed:", error);
+      throw error;
+    }
   };
 
   const logout = () => {
@@ -97,6 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("integrationStatus");
     localStorage.removeItem("userEmail");
     localStorage.removeItem("lastDailyBriefDate"); // Clear daily brief date as well
+    localStorage.removeItem("token");
 
     setIsLoggedIn(false);
     setIntegrationStatus({
@@ -117,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, deleteAccount, integrationStatus, toggleIntegration, userEmail }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, googleLogin, logout, deleteAccount, integrationStatus, toggleIntegration, userEmail }}>
       {children}
     </AuthContext.Provider>
   );

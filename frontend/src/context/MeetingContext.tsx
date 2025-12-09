@@ -1,9 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { Meeting, ActionItem } from "@/types/meeting";
-import { startOfDay, setHours, setMinutes, subDays, addDays, isSameDay, parseISO } from "date-fns";
+import { startOfDay, addDays, parseISO, setHours, setMinutes } from "date-fns";
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
+import api from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 
 interface MeetingContextType {
   meetings: Meeting[];
@@ -12,19 +14,11 @@ interface MeetingContextType {
   updateMeetingStatus: (meetingId: string, newStatus: Meeting['status']) => void;
   processMeetingSummary: (meetingId: string, summaryText: string) => void;
   rejectActionItem: (actionItemId: string) => void;
-  syncMeetings: () => void; // Add syncMeetings to context type
+  syncMeetings: (source?: 'mock' | 'google') => Promise<void>;
+  isLoading: boolean;
 }
 
 const MeetingContext = createContext<MeetingContextType | undefined>(undefined);
-
-// Helper to simulate meeting classification
-const classifyMeeting = (title: string, location?: string): boolean => {
-  const onlineKeywords = ["zoom.us", "meet.google.com", "teams.microsoft.com", "online meeting", "video call"];
-  const lowerCaseTitle = title.toLowerCase();
-  const lowerCaseLocation = location?.toLowerCase() || "";
-
-  return onlineKeywords.some(keyword => lowerCaseTitle.includes(keyword) || lowerCaseLocation.includes(keyword));
-};
 
 // Mock summary content map for more dynamic retrieval
 const mockSummaryContentMap: { [key: string]: string } = {
@@ -113,81 +107,40 @@ const simulateAIExtraction = (meetingId: string, summaryText: string, meetingDat
   return extractedActions;
 };
 
-// Generates mock meetings for a specific day
-const generateMeetingsForDay = (day: Date, isToday: boolean): Meeting[] => {
-  const meetings: Meeting[] = [];
-  const statusForToday = (hasSummary: boolean, isOnline: boolean) => {
-    if (isOnline) {
-      return hasSummary ? "pending" : "unrecorded";
-    }
-    return "offline-pending-input";
-  };
-  const statusForPast = "processed";
-
-  meetings.push(
-    {
-      id: uuidv4(),
-      googleEventId: `gcal-${day.toISOString()}-1`,
-      title: `Daily Standup`,
-      startTime: setMinutes(setHours(day, 9), 0),
-      endTime: setMinutes(setHours(day, 9), 30),
-      isOnline: classifyMeeting(`Daily Standup`, "Zoom Link: zoom.us/j/12345"),
-      location: "Zoom Link: zoom.us/j/12345",
-      participants: ["sarah@example.com", "john@example.com"],
-      summaryLink: `https://granola.com/summary/m-0-1`, // Always has a summary
-      isRecorded: true,
-      status: isToday ? statusForToday(true, true) : statusForPast,
-      date: day,
-    },
-    {
-      id: uuidv4(),
-      googleEventId: `gcal-${day.toISOString()}-2`,
-      title: `Client Pitch - Project Alpha`,
-      startTime: setMinutes(setHours(day, 11), 0),
-      endTime: setMinutes(setHours(day, 12), 0),
-      isOnline: classifyMeeting(`Client Pitch - Project Alpha`, "Google Meet: meet.google.com/abc-defg-hij"),
-      location: "Google Meet: meet.google.com/abc-defg-hij",
-      participants: ["sarah@example.com", "client@example.com"],
-      summaryLink: undefined, // Simulating no summary found
-      isRecorded: false,
-      status: isToday ? statusForToday(false, true) : statusForPast,
-      date: day,
-    },
-    {
-      id: uuidv4(),
-      googleEventId: `gcal-${day.toISOString()}-3`,
-      title: `Team Brainstorm Session`,
-      startTime: setMinutes(setHours(day, 14), 0),
-      endTime: setMinutes(setHours(day, 15), 30),
-      isOnline: classifyMeeting(`Team Brainstorm Session`, "Conference Room 3B"),
-      location: "Conference Room 3B",
-      participants: ["sarah@example.com", "mark@example.com", "lisa@example.com"],
-      summaryLink: undefined,
-      isRecorded: false,
-      status: isToday ? statusForToday(false, false) : statusForPast,
-      date: day,
-    },
-    {
-      id: uuidv4(),
-      googleEventId: `gcal-${day.toISOString()}-4`,
-      title: `1:1 with John`,
-      startTime: setMinutes(setHours(day, 16), 0),
-      endTime: setMinutes(setHours(day, 16), 30),
-      isOnline: classifyMeeting(`1:1 with John`, "Zoom Link: zoom.us/j/67890"),
-      location: "Zoom Link: zoom.us/j/67890",
-      participants: ["sarah@example.com", "john@example.com"],
-      summaryLink: `https://notion.so/summary/m-0-4`, // Always has a summary
-      isRecorded: true,
-      status: isToday ? statusForToday(true, true) : statusForPast,
-      date: day,
-    },
-  );
-  return meetings;
-};
-
-export const MeetingProvider = ({ children }: { ReactNode }) => {
+export const MeetingProvider = ({ children }: { children: ReactNode }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const fetchMeetings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/meetings/');
+      const fetchedMeetings = response.data.map((m: any) => ({
+        id: m._id,
+        googleEventId: m.google_event_id,
+        title: m.title,
+        // Backend returns ISO strings, ensure new Date() parses them correctly
+        startTime: new Date(m.start_time),
+        endTime: new Date(m.end_time),
+        isOnline: m.is_online,
+        location: m.location,
+        participants: m.participants || [],
+        summaryLink: m.summary_link,
+        isRecorded: m.is_recorded,
+        status: m.status,
+        // Use local start of day for grouping
+        date: startOfDay(new Date(m.start_time)),
+      }));
+      setMeetings(fetchedMeetings);
+    } catch (error) {
+      console.error("Failed to fetch meetings:", error);
+      // Don't show toast on initial load if just not logged in
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Function to process a summary and add action items
   const processMeetingSummary = (meetingId: string, summaryText: string) => {
@@ -200,10 +153,23 @@ export const MeetingProvider = ({ children }: { ReactNode }) => {
   };
 
   // Function to update meeting status
-  const updateMeetingStatus = (meetingId: string, newStatus: Meeting['status']) => {
+  const updateMeetingStatus = async (meetingId: string, newStatus: Meeting['status']) => {
+    // Optimistic update
     setMeetings((prev) =>
       prev.map((m) => (m.id === meetingId ? { ...m, status: newStatus } : m)),
     );
+
+    try {
+        await api.patch(`/meetings/${meetingId}/status`, { status: newStatus });
+    } catch (error) {
+        console.error("Failed to update meeting status on backend:", error);
+        toast({
+            title: "Error",
+            description: "Failed to update meeting status.",
+            variant: "destructive",
+        });
+        // Revert? (Not implemented for simplicity)
+    }
   };
 
   // Function to add or update an action item
@@ -224,59 +190,35 @@ export const MeetingProvider = ({ children }: { ReactNode }) => {
     setActionItems((prev) => prev.filter(item => item.id !== actionItemId));
   };
 
-  // Simulate daily sync
-  const syncMeetings = () => {
-    const today = startOfDay(new Date());
-    const todayMeetings = generateMeetingsForDay(today, true);
-
-    // Filter out existing today's meetings and their action items
-    setMeetings(prevMeetings => prevMeetings.filter(m => !isSameDay(m.date, today)));
-    setActionItems(prevActionItems => prevActionItems.filter(ai => {
-      const relatedMeeting = meetings.find(m => m.id === ai.meetingId);
-      return !relatedMeeting || !isSameDay(relatedMeeting.date, today);
-    }));
-
-    setMeetings(prevMeetings => [...prevMeetings, ...todayMeetings]);
-
-    // Automatically process summaries for meetings that have them
-    todayMeetings.forEach(meeting => {
-      if (meeting.status === 'pending' && meeting.summaryLink) {
-        const summaryContent = mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}.`;
-        processMeetingSummary(meeting.id, summaryContent);
-      }
-    });
+  // Sync meetings from backend
+  const syncMeetings = async (source: 'mock' | 'google' = 'mock') => {
+    setIsLoading(true);
+    try {
+      await api.post(`/meetings/sync?source=${source}`);
+      toast({
+        title: "Sync Successful",
+        description: `Meetings synced from ${source === 'mock' ? 'Mock Data' : 'Google Calendar'}.`,
+      });
+      await fetchMeetings();
+    } catch (error) {
+      console.error("Sync failed:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Could not sync meetings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Initial fetch
   useEffect(() => {
-    const today = startOfDay(new Date());
-    const pastMeetings: Meeting[] = [];
-    const initialActionItems: ActionItem[] = [];
-
-    // Generate past 6 days of meetings
-    for (let i = 1; i <= 6; i++) {
-      const day = subDays(today, i);
-      const dayMeetings = generateMeetingsForDay(day, false);
-      pastMeetings.push(...dayMeetings);
-
-      // Simulate executed actions for past processed meetings
-      dayMeetings.forEach(meeting => {
-        if (meeting.status === 'processed') {
-          const summaryContent = meeting.summaryLink ? mockSummaryContentMap[meeting.summaryLink] || `Generic summary for ${meeting.title}` : `Manual input for ${meeting.title}: follow up with John, schedule next review.`;
-          const simulatedActions = simulateAIExtraction(meeting.id, summaryContent, meeting.date);
-          simulatedActions.forEach(action => {
-            initialActionItems.push({
-              ...action,
-              status: "Executed", // Past actions are mostly executed
-              executedAt: addDays(action.createdAt, 1),
-            });
-          });
-        }
-      });
+    const token = localStorage.getItem('token');
+    if (token) {
+        fetchMeetings();
     }
-
-    setMeetings(pastMeetings);
-    setActionItems(initialActionItems);
-  }, []);
+  }, [fetchMeetings]);
 
   return (
     <MeetingContext.Provider
@@ -288,6 +230,7 @@ export const MeetingProvider = ({ children }: { ReactNode }) => {
         processMeetingSummary,
         rejectActionItem,
         syncMeetings,
+        isLoading,
       }}
     >
       {children}

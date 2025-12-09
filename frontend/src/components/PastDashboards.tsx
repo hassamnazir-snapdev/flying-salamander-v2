@@ -25,10 +25,15 @@ const PastDashboards = () => {
 
   for (let i = 1; i <= 6; i++) { // Past 6 days (excluding today)
     const day = subDays(today, i);
-    const dayMeetings = meetings.filter(m => isSameDay(m.date, day));
+    const dayMeetings = meetings.filter(m => {
+        // Handle date comparison robustly, assuming m.date might be a Date object or string
+        const meetingDate = new Date(m.date || m.startTime);
+        return isSameDay(meetingDate, day);
+    });
+    
     const dayActionItems = actionItems.filter(ai =>
       dayMeetings.some(m => m.id === ai.meetingId) || // Actions directly linked to a meeting on this day
-      (ai.createdAt && isSameDay(ai.createdAt, day) && !ai.meetingId) // Actions created on this day but not linked to a specific meeting
+      (ai.createdAt && isSameDay(new Date(ai.createdAt), day) && !ai.meetingId) // Actions created on this day but not linked to a specific meeting
     );
 
     const actionsCompleted = dayActionItems.filter(ai => ai.status === "Executed" || ai.status === "Confirmed").length;

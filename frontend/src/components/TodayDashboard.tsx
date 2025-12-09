@@ -12,6 +12,17 @@ const TodayDashboard = () => {
   const formattedDate = format(today, "EEEE, MMMM d, yyyy");
   const { meetings, actionItems } = useMeetings();
 
+  // Filter for today's meetings only
+  // Note: Depending on timezone parsing, 'today' here might be strictly local browser time
+  // while meeting.startTime is UTC or timezone aware.
+  const todayMeetings = meetings.filter(meeting => {
+      const meetingDate = new Date(meeting.startTime);
+      // Simple comparison for now - ensure month/day/year match local 'today'
+      return meetingDate.getDate() === today.getDate() &&
+             meetingDate.getMonth() === today.getMonth() &&
+             meetingDate.getFullYear() === today.getFullYear();
+  });
+
   const pendingActionItems = actionItems.filter(
     (item) => item.status === "Pending" && !meetings.some(m => m.id === item.meetingId && (m.status === 'unrecorded' || m.status === 'offline-pending-input'))
   );
@@ -28,11 +39,11 @@ const TodayDashboard = () => {
             <CardTitle>Today's Meetings</CardTitle>
           </CardHeader>
           <CardContent>
-            {meetings.length === 0 ? (
+            {todayMeetings.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No meetings scheduled for today. Enjoy the quiet!</p>
             ) : (
               <div className="space-y-4">
-                {meetings.map((meeting) => (
+                {todayMeetings.map((meeting) => (
                   <MeetingCard
                     key={meeting.id}
                     meeting={meeting}
