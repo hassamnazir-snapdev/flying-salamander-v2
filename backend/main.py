@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the parent directory to sys.path to allow absolute imports from backend.*
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
