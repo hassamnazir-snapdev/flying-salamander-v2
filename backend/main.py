@@ -1,5 +1,6 @@
 import sys
 import os
+import uvicorn
 
 # Add the parent directory to sys.path to allow absolute imports from backend.*
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,6 +40,7 @@ async def health_check():
         db_status = "disconnected"
     
     return {"status": "ok", "db": db_status}
-# Trigger reload
-# Trigger reload for dependencies
-# Trigger reload for env vars
+
+if __name__ == "__main__":
+    print(f"Starting server on port {settings.PORT}...")
+    uvicorn.run(app, host="0.0.0.0", port=settings.PORT, log_level="info")

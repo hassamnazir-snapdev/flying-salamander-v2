@@ -64,6 +64,7 @@ async def google_login(auth_data: GoogleAuthCode):
             client_config=client_config,
             scopes=[
                 "https://www.googleapis.com/auth/calendar.readonly",
+                "https://www.googleapis.com/auth/gmail.send",
                 "openid",
                 "https://www.googleapis.com/auth/userinfo.email",
                 "https://www.googleapis.com/auth/userinfo.profile"

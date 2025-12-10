@@ -35,10 +35,7 @@ const Login = () => {
       });
     },
     flow: 'auth-code',
-    scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email openid profile',
-    // Force consent to ensure we get a refresh token for offline access
-    // This is critical for background syncing
-    prompt: 'consent',
+    scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email openid profile',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
